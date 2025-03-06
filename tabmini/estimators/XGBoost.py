@@ -1,84 +1,67 @@
-from pathlib import Path
-
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils import check_X_y
+from sklearn.metrics import accuracy_score, f1_score
 from sklearn.utils.validation import check_is_fitted, check_array
 from xgboost import XGBClassifier
-
+from itertools import product
+import pandas as pd
 
 class XGBoost(BaseEstimator, ClassifierMixin):
     """A scikit-learn compatible estimator that uses XGBoost to fit and predict data."""
 
     def __init__(
             self,
-            path: Path,
             time_limit: int = 3600,
             device: str = "cpu",
-            seed: int = 0,
+            seed: int = 42,
             kwargs: dict = {}
     ):
-        self.path = path
         self.time_limit = time_limit
         self.device = device
         self.seed = seed
         self.kwargs = kwargs
         
-        self.xgb = XGBClassifier(
-            n_estimators=2,
-            max_depth=2,
-            learning_rate=1,
-            objective='binary:logistic',
-            eval_metric='auc',
-            use_label_encoder=False,
-            random_state=self.seed,
-        )
-
         # specify that this is a binary classifier
         self.n_classes_ = 2
         self.classes_ = [0, 1]
 
-    def fit(self, X, y) -> 'XGBoost':
-        """
+    def train_and_evaluate(self, x_train, y_train, x_test, y_test, save_dir):
+        x_train_check, y_train_check = check_X_y(x_train, y_train, accept_sparse=True)
+        
+        results = []
+        # We do the experiment with these hyper parameter
+        # + n_estimators
+        # + learning_rate
 
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            The training input samples.
-        y : array-like, shape (n_samples,) or (n_samples, n_outputs)
-            The target values (class labels in classification, real numbers in
-            regression).
+        n_estimators_sample = [50, 100]
+        learning_rate_sample = [0.1, 0.2]
+        # Generate all combinations
+        combinations = list(product(n_estimators_sample, learning_rate_sample))
+        
+        for combo in combinations:
+            print(f"Do the experiment on these parameter: n_estimators: {combo[0]}, learning_rate: {combo[1]}")
 
-        Returns
-        -------
-        self : object
-            Returns self.
-        """
-        X, y = check_X_y(X, y, accept_sparse=True)
+            xgb = XGBClassifier(
+                n_estimators=combo[0],
+                max_depth=2,
+                learning_rate=combo[1],
+                objective='binary:logistic',
+                eval_metric='auc',
+                use_label_encoder=False,
+                random_state=42,
+            )
 
-        self.feature_names = [f"f{i}" for i in range(X.shape[1])]
-        self.feature_names.insert(0, "target")
+            # Training
+            xgb.fit(x_train_check, y_train_check)
 
-        self.model = self.xgb.fit(X, y)
+            # Inference
+            y_inference = xgb.predict(x_test)
 
-        return self
-
-    def predict_proba(self, X):
-        check_is_fitted(self)
-        X = check_array(X, accept_sparse=True)
-
-        probability_positive_class = self.model.predict(X)
-        probability_positive_class_scaled = (probability_positive_class - probability_positive_class.min()) / (
-                probability_positive_class.max() - probability_positive_class.min() + 1e-10)
-
-        # Create a 2D array with probabilities of both classes
-        return np.vstack([1 - probability_positive_class_scaled, probability_positive_class_scaled]).T
-
-    def decision_function(self, X):
-        # Get the probabilities from predict_proba
-        proba = self.predict_proba(X)
-
-        # Calculate the log of ratios for binary classification
-        decision = np.log((proba[:, 1] + 1e-10) / (proba[:, 0] + 1e-10))
-
-        return decision
+            # Calculate 
+            f1 = f1_score(y_test, y_inference, average="binary")
+            acc = accuracy_score(y_test, y_inference)
+            results.append({"params": f'{combo[0]}-{combo[1]}',"accuracy": acc, "f1_score": f1})
+        
+        result_df = pd.DataFrame(results)
+        result_df.to_csv(save_dir, index=False)
