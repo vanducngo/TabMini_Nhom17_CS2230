@@ -12,4 +12,4 @@ lightgbm==3.3.1
 xgboost==2.0.3
 catboost==1.2.3
 faiss-cpu
-# pytorch_tabr
+pytorch_tabular
