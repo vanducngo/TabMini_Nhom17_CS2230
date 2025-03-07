@@ -38,7 +38,7 @@ class MLP_PLR(BaseEstimator, ClassifierMixin):
     def fit(self, X, y):
         X, y = check_X_y(X, y, accept_sparse=True)
         X, y = torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32)
-        y = y.unsqueeze(1)  # Đảm bảo đầu ra có shape (batch_size, 1)
+        y = y.unsqueeze(1)
         
         self.input_dim = X.shape[1]
         self.model = build_mlp(self.input_dim, self.hidden_layers).to(self.device)

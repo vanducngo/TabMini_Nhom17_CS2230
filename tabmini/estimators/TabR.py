@@ -40,7 +40,7 @@ class TabR(BaseEstimator, ClassifierMixin):
         context_size: int = 64,
         n_neighbors: int = 10,
         learning_rate: float = 0.01,
-        epochs: int = 10,
+        epochs: int = 500,
         batch_size: int = 32,
     ):
         self.time_limit = time_limit
