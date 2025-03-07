@@ -33,7 +33,7 @@ class TransformerClassifier(nn.Module):
 class TabTransformer(BaseEstimator, ClassifierMixin):
     def __init__(
             self,
-            epochs: int = 20,
+            epochs: int = 500,
             batch_size: int = 64,
             learning_rate: float = 0.001,
             embed_dim: int = 32,
@@ -103,7 +103,7 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
 
         results = []
         embedding_dims = [32, 64, 128]
-        attn_heads = [4, 6, 8]
+        attn_heads = [4, 8]
         depth_values = [2, 4]
 
         for embed_dim, num_heads, depth in product(embedding_dims, attn_heads, depth_values):
