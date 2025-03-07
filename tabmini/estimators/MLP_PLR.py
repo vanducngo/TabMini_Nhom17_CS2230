@@ -23,7 +23,7 @@ class MLP_PLR(BaseEstimator, ClassifierMixin):
     def __init__(self, 
                  hidden_layers=(64, 32), 
                  learning_rate=0.001, 
-                 epochs=50, 
+                 epochs=10, 
                  batch_size=32, 
                  device='cpu', 
                  seed=0):
@@ -59,7 +59,7 @@ class MLP_PLR(BaseEstimator, ClassifierMixin):
                 self.optimizer.step()
             print(f"Epoch {epoch+1}/{self.epochs}, Loss: {loss.item():.4f}")
         return self
-
+    
     def predict(self, X):
         check_is_fitted(self, 'model')
         X = check_array(X, accept_sparse=True)
@@ -76,7 +76,7 @@ class MLP_PLR(BaseEstimator, ClassifierMixin):
         results = []
         hidden_layers_options = [(64, 32), (128, 64), (256, 128)]
         learning_rates = [0.001, 0.0005]
-        epochs_options = [50, 100]
+        epochs_options = [300, 500]
         
         combinations = list(product(hidden_layers_options, learning_rates, epochs_options))
         
