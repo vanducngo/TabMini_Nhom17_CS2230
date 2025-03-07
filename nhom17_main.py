@@ -100,7 +100,7 @@ def main(args):
             model = MLP_PLR()
         elif args.model == 8:
             model = TabR()
-        elif args.model == 8:
+        elif args.model == 9:
             model = TabTransformer()
         else:
             print("Sai argument roi")
