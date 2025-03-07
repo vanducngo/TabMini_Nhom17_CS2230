@@ -6,7 +6,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 
 import tabmini
-from tabmini.estimators import XGBoost, get_available_methods
+from tabmini.estimators import XGBoost, CatBoost
 from tabmini.types import TabminiDataset
 from sklearn.model_selection import train_test_split
 import argparse
@@ -90,8 +90,9 @@ def main(args):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
         if args.model == 1:
-            # model = XGBoost(small_dataset=True)
             model = XGBoost()
+        elif args.model == 3:
+            model = CatBoost()
         else:
             print("Sai argument roi")
             return

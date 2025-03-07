@@ -34,8 +34,8 @@ class XGBoost(BaseEstimator, ClassifierMixin):
         # + n_estimators
         # + learning_rate
 
-        n_estimators_sample = [50, 100]
-        learning_rate_sample = [0.1, 0.2]
+        n_estimators_sample = [50, 100, 200]
+        learning_rate_sample = [0.05, 0.2, 0.5]
         # Generate all combinations
         combinations = list(product(n_estimators_sample, learning_rate_sample))
         
@@ -53,10 +53,10 @@ class XGBoost(BaseEstimator, ClassifierMixin):
             )
 
             # Training
-            xgb.fit(x_train_check, y_train_check)
+            model = xgb.fit(x_train_check, y_train_check)
 
             # Inference
-            y_inference = xgb.predict(x_test)
+            y_inference = model.predict(x_test)
 
             # Calculate 
             f1 = f1_score(y_test, y_inference, average="binary")
