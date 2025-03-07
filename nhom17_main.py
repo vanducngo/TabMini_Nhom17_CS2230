@@ -8,6 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 import tabmini
 from tabmini.estimators import XGBoost, CatBoost
 from tabmini.estimators.TabR import TabR
+from tabmini.estimators.MLP_PLR import MLP_PLR
 from tabmini.types import TabminiDataset
 from sklearn.model_selection import train_test_split
 import argparse
@@ -94,6 +95,8 @@ def main(args):
             model = XGBoost()
         elif args.model == 3:
             model = CatBoost()
+        elif args.model == 7:
+            model = MLP_PLR()
         elif args.model == 8:
             model = TabR()
         else:
