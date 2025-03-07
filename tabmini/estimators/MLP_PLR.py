@@ -38,6 +38,8 @@ class MLP_PLR(BaseEstimator, ClassifierMixin):
     def fit(self, X, y):
         X, y = check_X_y(X, y, accept_sparse=True)
         X, y = torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32)
+        y = y.unsqueeze(1)  # Đảm bảo đầu ra có shape (batch_size, 1)
+        
         self.input_dim = X.shape[1]
         self.model = build_mlp(self.input_dim, self.hidden_layers).to(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -45,18 +47,41 @@ class MLP_PLR(BaseEstimator, ClassifierMixin):
 
         dataset = torch.utils.data.TensorDataset(X, y)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
-        
+
         self.model.train()
         for epoch in range(self.epochs):
             for batch_X, batch_y in dataloader:
                 batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
                 self.optimizer.zero_grad()
-                outputs = self.model(batch_X).squeeze()
-                loss = self.criterion(outputs, batch_y)
+                outputs = self.model(batch_X)
+                loss = self.criterion(outputs, batch_y)  # Không bị lỗi shape
                 loss.backward()
                 self.optimizer.step()
             print(f"Epoch {epoch+1}/{self.epochs}, Loss: {loss.item():.4f}")
         return self
+
+    # def fit(self, X, y):
+    #     X, y = check_X_y(X, y, accept_sparse=True)
+    #     X, y = torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32)
+    #     self.input_dim = X.shape[1]
+    #     self.model = build_mlp(self.input_dim, self.hidden_layers).to(self.device)
+    #     self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+    #     self.criterion = nn.BCEWithLogitsLoss()
+
+    #     dataset = torch.utils.data.TensorDataset(X, y)
+    #     dataloader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        
+    #     self.model.train()
+    #     for epoch in range(self.epochs):
+    #         for batch_X, batch_y in dataloader:
+    #             batch_X, batch_y = batch_X.to(self.device), batch_y.to(self.device)
+    #             self.optimizer.zero_grad()
+    #             outputs = self.model(batch_X).squeeze()
+    #             loss = self.criterion(outputs, batch_y)
+    #             loss.backward()
+    #             self.optimizer.step()
+    #         print(f"Epoch {epoch+1}/{self.epochs}, Loss: {loss.item():.4f}")
+    #     return self
     
     def predict(self, X):
         check_is_fitted(self, 'model')
