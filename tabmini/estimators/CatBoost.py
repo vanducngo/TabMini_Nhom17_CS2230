@@ -37,9 +37,9 @@ class CatBoost(BaseEstimator, ClassifierMixin):
         # + n_estimators
         # + learning_rate
 
-        iterations = [50, 100, 200]
-        learning_rate_sample = [0.1, 0.3]
-        depth = [4, 8, 16]
+        iterations = [300, 600]
+        learning_rate_sample = [0.01, 0.05]
+        depth = [8, 16]
         # Generate all combinations
         combinations = list(product(iterations, learning_rate_sample, depth))
         
