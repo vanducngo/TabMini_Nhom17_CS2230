@@ -34,9 +34,9 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
 
     def __init__(
             self,
-            epochs: int = 20,
+            epochs: int = 1000,
             batch_size: int = 64,
-            learning_rate: float = 0.001,
+            learning_rate: float = 0.01,
             embed_dim: int = 32,
             num_heads: int = 4,
             depth: int = 2,
@@ -89,8 +89,8 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
         x_test_check = check_array(x_test, accept_sparse=False)
 
         results = []
-        embedding_dims = [16, 32]
-        attn_heads = [4, 8]
+        embedding_dims = [32, 64, 128]
+        attn_heads = [4, 6, 8]
         depth_values = [2, 4]
 
         for embed_dim, num_heads, depth in product(embedding_dims, attn_heads, depth_values):
