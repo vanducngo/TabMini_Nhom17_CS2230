@@ -9,6 +9,7 @@ import tabmini
 from tabmini.estimators import XGBoost, CatBoost
 from tabmini.estimators.TabR import TabR
 from tabmini.estimators.MLP_PLR import MLP_PLR
+from tabmini.estimators.TabTransfromer import TabTransformer
 from tabmini.types import TabminiDataset
 from sklearn.model_selection import train_test_split
 import argparse
@@ -99,6 +100,8 @@ def main(args):
             model = MLP_PLR()
         elif args.model == 8:
             model = TabR()
+        elif args.model == 8:
+            model = TabTransformer()
         else:
             print("Sai argument roi")
             return

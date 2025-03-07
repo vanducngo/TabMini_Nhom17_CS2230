@@ -1,100 +1,111 @@
 from itertools import product
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import torch
-from pytorch_tabular import TabularModel
-from pytorch_tabular.models import TabTransformerConfig
+import torch.nn as nn
+import torch.optim as optim
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.utils import check_X_y
 from sklearn.utils.validation import check_array
-from pytorch_tabular.config import TrainerConfig, DataConfig
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.utils.validation import check_is_fitted, check_array
+
+class TransformerClassifier(nn.Module):
+    def __init__(self, input_dim, embed_dim, num_heads, depth, num_classes=2):
+        super(TransformerClassifier, self).__init__()
+        self.embedding = nn.Linear(input_dim, embed_dim)
+        self.transformer_layers = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, dim_feedforward=embed_dim * 4),
+            num_layers=depth
+        )
+        self.fc = nn.Linear(embed_dim, num_classes)
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        x = self.embedding(x)
+        x = self.transformer_layers(x.unsqueeze(1)).squeeze(1)
+        x = self.fc(x)
+        return self.softmax(x)
 
 
-class TabTransformerClassifier(BaseEstimator, ClassifierMixin):
-    """A scikit-learn compatible estimator that uses TabTransformer to fit and predict data."""
+class TabTransformer(BaseEstimator, ClassifierMixin):
+    """A scikit-learn compatible estimator that uses a Transformer model to fit and predict tabular data."""
 
     def __init__(
             self,
             epochs: int = 20,
             batch_size: int = 64,
             learning_rate: float = 0.001,
-            seed: int = 0,
-            device: str = "cpu",
-            kwargs: dict = {}
+            embed_dim: int = 32,
+            num_heads: int = 4,
+            depth: int = 2,
+            device: str = "cpu"
     ):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.device = device
-        self.seed = seed
-        self.kwargs = kwargs
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.depth = depth
+        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.model = None
 
-        # specify that this is a binary classifier
-        self.n_classes_ = 2
-        self.classes_ = [0, 1]
+    def fit(self, X, y):
+        X, y = check_X_y(X, y, accept_sparse=False)
+        X = torch.tensor(X, dtype=torch.float32).to(self.device)
+        y = torch.tensor(y, dtype=torch.long).to(self.device)
+
+        dataset = TensorDataset(X, y)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+        self.model = TransformerClassifier(X.shape[1], self.embed_dim, self.num_heads, self.depth).to(self.device)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+
+        for epoch in range(self.epochs):
+            self.model.train()
+            total_loss = 0
+            for batch_X, batch_y in dataloader:
+                optimizer.zero_grad()
+                outputs = self.model(batch_X)
+                loss = criterion(outputs, batch_y)
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+            print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {total_loss / len(dataloader):.4f}")
+
+    def predict(self, X):
+        check_is_fitted(self, "model")
+        X = check_array(X, accept_sparse=False)
+        X = torch.tensor(X, dtype=torch.float32).to(self.device)
+        self.model.eval()
+        with torch.no_grad():
+            outputs = self.model(X)
+        return outputs.argmax(dim=1).cpu().numpy()
 
     def train_and_evaluate(self, x_train, y_train, x_test, y_test, save_dir):
-        x_train_check, y_train_check = check_X_y(x_train, y_train, accept_sparse=True)
-        
+        x_train_check, y_train_check = check_X_y(x_train, y_train, accept_sparse=False)
+        x_test_check = check_array(x_test, accept_sparse=False)
+
         results = []
-        # Hyperparameter tuning grid
         embedding_dims = [16, 32]
         attn_heads = [4, 8]
-        depth = [2, 4]
-        
-        # Generate all combinations
-        combinations = list(product(embedding_dims, attn_heads, depth))
-        
-        for combo in combinations:
-            embed_dim, heads, depth = combo
-            print(f"Training with embed_dim: {embed_dim}, attn_heads: {heads}, depth: {depth}")
+        depth_values = [2, 4]
+
+        for embed_dim, num_heads, depth in product(embedding_dims, attn_heads, depth_values):
+            print(f"Training with embed_dim: {embed_dim}, attn_heads: {num_heads}, depth: {depth}")
             
-            # Configurations
-            data_config = DataConfig(
-                target=['target'],
-                continuous_cols=list(x_train.columns),
-                categorical_cols=[]
-            )
+            self.embed_dim = embed_dim
+            self.num_heads = num_heads
+            self.depth = depth
             
-            model_config = TabTransformerConfig(
-                task="classification",
-                learning_rate=self.learning_rate,
-                embedding_dim=embed_dim,
-                attn_heads=heads,
-                attn_dropout=0.1,
-                num_attn_blocks=depth,
-                seed=self.seed,
-                metrics=["accuracy", "f1"]
-            )
+            self.fit(x_train_check, y_train_check)
+            y_pred = self.predict(x_test_check)
             
-            trainer_config = TrainerConfig(auto_lr_find=True, max_epochs=self.epochs)
-            
-            # Initialize and train model
-            model = TabularModel(
-                data_config=data_config,
-                model_config=model_config,
-                trainer_config=trainer_config
-            )
-            
-            df_train = pd.DataFrame(x_train, columns=x_train.columns)
-            df_train['target'] = y_train
-            df_test = pd.DataFrame(x_test, columns=x_test.columns)
-            df_test['target'] = y_test
-            
-            model.fit(train=df_train, test=df_test)
-            
-            # Inference
-            preds = model.predict(df_test)
-            y_pred = preds["prediction"]
-            
-            # Calculate metrics
             f1 = f1_score(y_test, y_pred, average="binary")
             acc = accuracy_score(y_test, y_pred)
-            results.append({"params": f'{embed_dim}-{heads}-{depth}', "accuracy": acc, "f1_score": f1})
+            results.append({"params": f'{embed_dim}-{num_heads}-{depth}', "accuracy": acc, "f1_score": f1})
         
         result_df = pd.DataFrame(results)
         result_df.to_csv(save_dir, index=False)
