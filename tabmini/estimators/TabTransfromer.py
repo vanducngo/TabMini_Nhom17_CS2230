@@ -10,6 +10,8 @@ from sklearn.utils import check_X_y
 from sklearn.utils.validation import check_array
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.utils.validation import check_is_fitted, check_array
+from sklearn.preprocessing import StandardScaler
+
 
 class TransformerClassifier(nn.Module):
     def __init__(self, input_dim, embed_dim, num_heads, depth, num_classes=2):
@@ -29,7 +31,16 @@ class TransformerClassifier(nn.Module):
 
 
 class TabTransformer(BaseEstimator, ClassifierMixin):
-    def __init__(self, epochs=100, batch_size=32, learning_rate=0.0005, embed_dim=32, num_heads=4, depth=2, device="cpu"):
+    def __init__(
+            self,
+            epochs: int = 20,
+            batch_size: int = 64,
+            learning_rate: float = 0.001,
+            embed_dim: int = 32,
+            num_heads: int = 4,
+            depth: int = 2,
+            device: str = "cpu"
+    ):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -38,13 +49,15 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
         self.depth = depth
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.model = None
+        self.scaler = StandardScaler()  # Thêm scaler để chuẩn hóa dữ liệu
 
     def fit(self, X, y):
-        from sklearn.preprocessing import StandardScaler
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
-
         X, y = check_X_y(X, y, accept_sparse=False)
+
+        # Fit scaler trên tập train và chuẩn hóa dữ liệu
+        self.scaler.fit(X)
+        X = self.scaler.transform(X)
+
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         y = torch.tensor(y, dtype=torch.long).to(self.device)
 
@@ -53,8 +66,7 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
 
         self.model = TransformerClassifier(X.shape[1], self.embed_dim, self.num_heads, self.depth).to(self.device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=1e-5)
-        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
+        optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
         for epoch in range(self.epochs):
             self.model.train()
@@ -65,14 +77,19 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
                 loss = criterion(outputs, batch_y)
                 loss.backward()
                 optimizer.step()
-            scheduler.step()  # Cập nhật learning rate
-            print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {loss.item():.4f}")
+                total_loss += loss.item()
+            print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {total_loss / len(dataloader):.4f}")
 
     def predict(self, X):
         check_is_fitted(self, "model")
-        from sklearn.preprocessing import StandardScaler
-        scaler = StandardScaler()
-        X = scaler.transform(X)
+
+        # Kiểm tra xem scaler đã được fit chưa
+        check_is_fitted(self.scaler, "mean_")
+
+        X = check_array(X, accept_sparse=False)
+
+        # Sử dụng scaler đã được fit để chuẩn hóa dữ liệu test
+        X = self.scaler.transform(X)
 
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         self.model.eval()
