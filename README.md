@@ -1,5 +1,25 @@
 # TabMini
 
+## ReadMe from Nhóm 17
+### Hướng dẫn cách chạy Program
+- Chạy trên môi trường của Dev Container, để cài đặt các package cần thiết.
+- Lưu ý về phần download dữ liệu trên pmlb. Hiện tại, mình không thể chạy được phần load data. Commit mới nhất trên repository https://github.com/EpistasisLab/pmlb/tree/master/datasets đã deprecate/remove một số dataset. Nên sẽ bị lỗi với cái latest code của Tabmini. Vì thế, khi load data lỗi, hãy vào đường dẫn lỗi trên terminal và sửa lại code. Bỏ qua các dataset không hợp lệ.
+
+- Command train và evaluate các mô hình: `python nhom17_main.py --model X`. Trong đó "X" là số thứ tự của model, có giá trị như sau:
+    - 1: XGBoost
+    - 3: CatBoost
+    - 7: MLP-PLR
+    - 8: TabR
+    - 9: TabTransformer
+
+- Cấu trúc thư mục của Repository, dựa theo working scope của nhóm:
+    - **nhom17_main.py**: File chính chưa hàm `main()`, ta sẽ thực thi các model tại hàm main.
+    - **tabmini/estimators**: Thư mục chứa các model được nhóm hiện thực, bao gồm các model ở trên.
+    - **working_dir**: Bao gồm:
+        - **AnalyzeResult**: Thư mục chứa các file `.ipynb` để phân tích kết quả classification của các model.
+        - Các thư mục tên models: Chứa các file `.csv` kết quả train, test và evaluation của từng model. 
+
+## ReadMe from Root Repository
 We introduce `TabMini`, the first tabular benchmark suite specifically for the low-data regime with 44 binary 
 classification datasets, and use our suite to compare state-of-the-art machine learning methods, 
 i.e., automated machine learning (AutoML) frameworks and off-the-shelf deep neural networks, 
