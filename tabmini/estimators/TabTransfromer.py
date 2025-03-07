@@ -16,32 +16,20 @@ class TransformerClassifier(nn.Module):
         super(TransformerClassifier, self).__init__()
         self.embedding = nn.Linear(input_dim, embed_dim)
         self.transformer_layers = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, dim_feedforward=embed_dim * 4),
+            nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, dim_feedforward=embed_dim * 4, dropout=0.1),
             num_layers=depth
         )
         self.fc = nn.Linear(embed_dim, num_classes)
-        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = self.embedding(x)
         x = self.transformer_layers(x.unsqueeze(1)).squeeze(1)
         x = self.fc(x)
-        return self.softmax(x)
+        return x  # KHÔNG DÙNG SOFTMAX
 
 
 class TabTransformer(BaseEstimator, ClassifierMixin):
-    """A scikit-learn compatible estimator that uses a Transformer model to fit and predict tabular data."""
-
-    def __init__(
-            self,
-            epochs: int = 1000,
-            batch_size: int = 64,
-            learning_rate: float = 0.01,
-            embed_dim: int = 32,
-            num_heads: int = 4,
-            depth: int = 2,
-            device: str = "cpu"
-    ):
+    def __init__(self, epochs=100, batch_size=32, learning_rate=0.0005, embed_dim=32, num_heads=4, depth=2, device="cpu"):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -52,6 +40,10 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
         self.model = None
 
     def fit(self, X, y):
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X = scaler.fit_transform(X)
+
         X, y = check_X_y(X, y, accept_sparse=False)
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         y = torch.tensor(y, dtype=torch.long).to(self.device)
@@ -61,7 +53,8 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
 
         self.model = TransformerClassifier(X.shape[1], self.embed_dim, self.num_heads, self.depth).to(self.device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        optimizer = optim.AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=1e-5)
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
 
         for epoch in range(self.epochs):
             self.model.train()
@@ -72,12 +65,15 @@ class TabTransformer(BaseEstimator, ClassifierMixin):
                 loss = criterion(outputs, batch_y)
                 loss.backward()
                 optimizer.step()
-                total_loss += loss.item()
-            print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {total_loss / len(dataloader):.4f}")
+            scheduler.step()  # Cập nhật learning rate
+            print(f"Epoch {epoch + 1}/{self.epochs}, Loss: {loss.item():.4f}")
 
     def predict(self, X):
         check_is_fitted(self, "model")
-        X = check_array(X, accept_sparse=False)
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X = scaler.transform(X)
+
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         self.model.eval()
         with torch.no_grad():
