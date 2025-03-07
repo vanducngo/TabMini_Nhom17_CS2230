@@ -34,18 +34,23 @@ class XGBoost(BaseEstimator, ClassifierMixin):
         # + n_estimators
         # + learning_rate
 
-        n_estimators_sample = [50, 100, 200]
-        learning_rate_sample = [0.05, 0.2, 0.5]
+        n_estimators = [50, 100, 200]
+        learning_rates = [0.01, 0.05, 0.1]
+        max_depths = [4, 10]
+        
         # Generate all combinations
-        combinations = list(product(n_estimators_sample, learning_rate_sample))
+        combinations = list(product(n_estimators, learning_rates, max_depths))
         
         for combo in combinations:
-            print(f"Do the experiment on these parameter: n_estimators: {combo[0]}, learning_rate: {combo[1]}")
+            n_estimator = combo[0]
+            learning_rate = combo[1]
+            max_depth = combo[2]
+            print(f"Do the experiment on these parameter: n_estimator: {n_estimator}, learning_rate: {learning_rate}, max_depth: {max_depth}")
 
             xgb = XGBClassifier(
-                n_estimators=combo[0],
-                max_depth=2,
-                learning_rate=combo[1],
+                n_estimators=n_estimator,
+                max_depth=max_depth,
+                learning_rate=learning_rate,
                 objective='binary:logistic',
                 eval_metric='auc',
                 use_label_encoder=False,
@@ -61,7 +66,7 @@ class XGBoost(BaseEstimator, ClassifierMixin):
             # Calculate 
             f1 = f1_score(y_test, y_inference, average="binary")
             acc = accuracy_score(y_test, y_inference)
-            results.append({"params": f'{combo[0]}-{combo[1]}',"accuracy": acc, "f1_score": f1})
+            results.append({"params": f'{n_estimator}-{max_depth}-{learning_rate}',"accuracy": acc, "f1_score": f1})
         
         result_df = pd.DataFrame(results)
         result_df.to_csv(save_dir, index=False)
